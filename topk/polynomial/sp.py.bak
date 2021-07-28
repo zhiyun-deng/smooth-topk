@@ -19,10 +19,10 @@ class LogSumExp(nn.Module):
         self.register_buffer('grad_km1', torch.Tensor(0))
 
         self.buffers = (self.grad_km1, self.grad_k)
-    
+
     def forward(self, x):
         f = LogSumExp_F(self.k, self.p, self.thresh, self.mul, self.buffers)
-        return f.apply(x, self.k, self.p, self.thresh, self.mul, self.buffers)
+        return f(x)
 
 
 class LogSumExp_F(ag.Function):
@@ -34,19 +34,12 @@ class LogSumExp_F(ag.Function):
 
         # unpack buffers
         self.grad_km1, self.grad_k = buffers
-    @staticmethod
-    def forward(self,x, k, p, thresh, mul, buffers):
+
+    def forward(self, x):
         """
         Returns a matrix of size (2, n_samples) with sigma_{k-1} and sigma_{k}
         for each sample of the mini-batch.
         """
-        self.k = k
-        self.p = p
-        self.mul = mul
-        self.thresh = thresh
-
-        # unpack buffers
-        self.grad_km1, self.grad_k = buffers
         self.save_for_backward(x)
 
         # number of samples and number of coefficients to compute
@@ -80,8 +73,8 @@ class LogSumExp_F(ag.Function):
         self.saved_coeff = coeff
 
         return coeff[self.k - 1: self.k + 1]
-    @staticmethod
-    def backward(self,grad_sk):
+
+    def backward(self, grad_sk):
         """
         Compute backward pass of LogSumExp.
         Python variables with an upper case first letter are in
@@ -102,7 +95,7 @@ class LogSumExp_F(ag.Function):
         # chain rule: combine with incoming gradients (broadcast to all classes on third dim)
         grad_x = grad_sk[0, :, None] * self.grad_km1 + grad_sk[1, :, None] * self.grad_k
 
-        return grad_x, None, None, None, None, None
+        return grad_x
 
 
 def log_sum_exp(x):
